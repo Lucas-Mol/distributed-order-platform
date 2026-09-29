@@ -1,0 +1,127 @@
+# Infra services (postgres, localstack) start by default.
+# Application services live in the "app" profile and only start once there is code:
+#   docker compose up -d                 # infra only
+#   docker compose --profile app up -d   # everything
+name: orders-platform
+
+x-aws-access: &aws-access
+  APP_ENV: ${APP_ENV}
+  AWS_REGION: ${AWS_REGION}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orders-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  localstack:
+    image: localstack/localstack:3
+    container_name: orders-localstack
+    restart: unless-stopped
+    environment:
+      SERVICES: s3,sqs,dynamodb,sns,lambda,iam,logs,ssm,secretsmanager
+      DEBUG: 0
+      AWS_DEFAULT_REGION: ${AWS_REGION}
+      LAMBDA_DOCKER_NETWORK: orders-platform_default
+      APP_ENV: ${APP_ENV}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      PDF_WORKER_CONCURRENCY: ${PDF_WORKER_CONCURRENCY}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PRODUCT_IMAGE_PREFIX: ${S3_PRODUCT_IMAGE_PREFIX}
+      S3_INVOICE_PREFIX: ${S3_INVOICE_PREFIX}
+      SQS_ORDERS_QUEUE: ${SQS_ORDERS_QUEUE}
+      SQS_INVOICE_READY_QUEUE: ${SQS_INVOICE_READY_QUEUE}
+      SNS_ORDER_TOPIC: ${SNS_ORDER_TOPIC}
+      DYNAMO_CARTS_TABLE: ${DYNAMO_CARTS_TABLE}
+      DYNAMO_STOCK_CACHE_TABLE: ${DYNAMO_STOCK_CACHE_TABLE}
+    ports:
+      - "${LOCALSTACK_PORT}:4566"
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d:ro
+      - ./lambdas:/opt/lambdas:ro
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal ssm get-parameter --name /order-platform/${APP_ENV}/bootstrap/completed >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  backend:
+    profiles: ["app"]
+    build:
+      context: ./backend
+      target: dev
+    container_name: orders-backend
+    restart: unless-stopped
+    environment:
+      <<: *aws-access
+      NODE_ENV: development
+      PORT: ${BACKEND_PORT}
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  pdf-service:
+    profiles: ["app"]
+    build:
+      context: ./pdf-service
+    container_name: orders-pdf-service
+    restart: unless-stopped
+    environment:
+      <<: *aws-access
+      PORT: ${PDF_SERVICE_PORT}
+    ports:
+      - "${PDF_SERVICE_PORT}:${PDF_SERVICE_PORT}"
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+  frontend:
+    profiles: ["app"]
+    build:
+      context: ./frontend
+      target: dev
+    container_name: orders-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
+  localstack-data:

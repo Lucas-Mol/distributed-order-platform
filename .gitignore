@@ -1,0 +1,43 @@
+# Internal docs
+docs/internals/
+
+# Env
+.env
+.env.local
+*.env.local
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# Prisma
+backend/prisma/generated/
+
+# Go
+pdf-service/bin/
+*.exe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+lambdas/**/package/
+lambdas/**/*.zip
+
+# LocalStack / Docker
+.localstack/
+volumes/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# WSL artifacts from Windows downloads
+*:Zone.Identifier
