@@ -84,6 +84,9 @@ put_param shared/sns-order-topic "${TOPIC}"
 put_param shared/dynamo-carts-table "${CARTS_TABLE}"
 put_param shared/dynamo-stock-cache-table "${STOCK_TABLE}"
 put_param backend/jwt-expires-in "${JWT_EXPIRES_IN:-1h}"
+put_param backend/rate-limit-ttl-seconds "${RATE_LIMIT_TTL_SECONDS:-60}"
+put_param backend/rate-limit-max "${RATE_LIMIT_MAX:-100}"
+put_param backend/auth-rate-limit-max "${AUTH_RATE_LIMIT_MAX:-10}"
 put_param pdf-service/worker-concurrency "${PDF_WORKER_CONCURRENCY:-4}"
 
 # ---------- Secrets Manager ----------

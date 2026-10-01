@@ -7,6 +7,7 @@ docs/internals/
 *.env.local
 
 # Node
+.npmrc
 node_modules/
 dist/
 build/
@@ -16,7 +17,7 @@ npm-debug.log*
 yarn-error.log*
 
 # Prisma
-backend/prisma/generated/
+backend/src/generated/
 
 # Go
 pdf-service/bin/
