@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process';
 import pg from 'pg';
 import { testDatabaseUrl } from './test-database.js';
 
-/** Creates the test database if needed and applies the migrations. */
 export default async function setup(): Promise<void> {
   const url = testDatabaseUrl();
   const dbname = url.pathname.slice(1);
