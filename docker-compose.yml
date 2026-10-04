@@ -47,6 +47,7 @@ services:
       RATE_LIMIT_TTL_SECONDS: ${RATE_LIMIT_TTL_SECONDS}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX}
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES}
       PDF_WORKER_CONCURRENCY: ${PDF_WORKER_CONCURRENCY}
       S3_BUCKET: ${S3_BUCKET}
       S3_PRODUCT_IMAGE_PREFIX: ${S3_PRODUCT_IMAGE_PREFIX}
@@ -115,7 +116,8 @@ services:
     container_name: orders-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      API_URL: http://backend:${BACKEND_PORT}
+      TRUSTED_PROXY_HOPS: ${FRONTEND_TRUSTED_PROXY_HOPS}
     ports:
       - "${FRONTEND_PORT}:3000"
     volumes:

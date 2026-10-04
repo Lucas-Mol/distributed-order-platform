@@ -1,0 +1,317 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0a0a0a;
+  --paper: #ffffff;
+  --sun: #ffd60a;
+  --accent: #ff6b2c;
+  --lilac: #e8e4ff;
+  --lilac-ink: #3a3550;
+  --muted: #3f3f3f;
+  --disabled: #f2f2f2;
+  --danger: #b3261e;
+  --link-hover: #2f4bff;
+  --status-ready: #5cc8ff;
+  --status-delivered: #7cf29c;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-sun: var(--sun);
+  --color-accent: var(--accent);
+  --color-lilac: var(--lilac);
+  --color-lilac-ink: var(--lilac-ink);
+  --color-muted: var(--muted);
+  --color-disabled: var(--disabled);
+  --color-danger: var(--danger);
+  --color-link-hover: var(--link-hover);
+  --color-status-ready: var(--status-ready);
+  --color-status-delivered: var(--status-delivered);
+
+  --font-display: var(--font-archivo-black), "Arial Black", sans-serif;
+  --font-sans: var(--font-space-grotesk), "Trebuchet MS", sans-serif;
+
+  --text-display-xl: 56px;
+  --text-display-xl--line-height: 1;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-display-lg: 44px;
+  --text-display-lg--line-height: 1.05;
+  --text-display-lg--letter-spacing: -0.03em;
+  --text-display-md: 30px;
+  --text-display-md--line-height: 1.1;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-sm: 24px;
+  --text-display-sm--line-height: 1.1;
+  --text-logo: 28px;
+  --text-logo--line-height: 1;
+  --text-logo--letter-spacing: -0.03em;
+  --text-title: 19px;
+  --text-title--line-height: 1.2;
+  --text-body-lg: 16px;
+  --text-body: 15px;
+  --text-small: 13px;
+  --text-overline: 12px;
+  --text-overline--letter-spacing: 0.08em;
+}
+
+/* Emitted even when unused so component classes below can reference them. */
+@theme static {
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --radius-pill: 22px;
+
+  --shadow-sm: 4px 4px 0 var(--ink);
+  --shadow-md: 5px 5px 0 var(--ink);
+  --shadow-lg: 6px 6px 0 var(--ink);
+  --shadow-xl: 8px 8px 0 var(--ink);
+}
+
+@layer base {
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--link-hover);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .page {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: 40px 16px;
+  }
+
+  @media (min-width: 640px) {
+    .page {
+      padding-inline: 32px;
+    }
+  }
+
+  .link {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+
+  .link:hover {
+    color: var(--link-hover);
+  }
+
+  .overline {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Buttons (section 4.3) */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 20px;
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      transform 80ms ease,
+      box-shadow 80ms ease;
+  }
+
+  .btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  .btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
+  .btn-lg {
+    min-height: 52px;
+  }
+
+  .btn-icon {
+    min-height: 44px;
+    width: 44px;
+    padding: 0;
+    font-size: 20px;
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: var(--ink);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-accent:hover {
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+
+  .btn-secondary {
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .btn-danger {
+    background: var(--paper);
+    color: var(--danger);
+  }
+
+  /* Declared after the variants so it wins over their hover shadows. */
+  .btn:disabled {
+    background: var(--disabled);
+    color: var(--muted);
+    box-shadow: none;
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  /* Inputs (section 4.4) */
+  .field-label {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .input {
+    width: 100%;
+    height: 52px;
+    padding: 0 16px;
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    font-size: 16px;
+  }
+
+  /* Nav pill (section 4.2) */
+  .nav-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-pill);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .nav-pill[aria-current="page"] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  /* Badges (sections 4.8 and 4.13) */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Containers (sections 4.6, 4.10 and 4.11) */
+  .card {
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    box-shadow: var(--shadow-md);
+  }
+
+  .card-product {
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .card-interactive {
+    transition:
+      transform 80ms ease,
+      box-shadow 80ms ease;
+  }
+
+  .card-interactive:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+
+  .card-interactive:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+
+  .panel {
+    border: 3px solid var(--ink);
+    border-radius: var(--radius-xl);
+    background: var(--paper);
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* Tables inside cards */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+
+  .data-table th {
+    padding: 12px 16px;
+    border-bottom: 3px solid var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .data-table td {
+    padding: 14px 16px;
+    border-bottom: 3px dashed var(--ink);
+  }
+
+  .data-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn:hover,
+  .btn:active,
+  .card-interactive,
+  .card-interactive:hover,
+  .card-interactive:active {
+    transform: none;
+    transition: none;
+  }
+}

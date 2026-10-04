@@ -13,8 +13,11 @@ import {
 } from '@nestjs/common';
 import { Auth } from '../auth/auth.decorator.js';
 import { Role } from '../generated/prisma/client.js';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
+import {
+  CreateProductDto,
+  ListProductsQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto.js';
 import { ProductsService } from './products.service.js';
 
 @Controller('products')
@@ -22,7 +25,7 @@ export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
+  findAll(@Query() query: ListProductsQueryDto) {
     return this.products.findAll(query);
   }
 

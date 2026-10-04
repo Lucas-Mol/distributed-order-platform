@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
@@ -7,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 
 export const MAX_PRICE_CENTS = 100_000_000;
 export const MAX_STOCK = 1_000_000;
@@ -56,4 +58,14 @@ export class UpdateProductDto {
   @Min(0)
   @Max(MAX_STOCK)
   stock?: number;
+}
+
+export class ListProductsQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 }

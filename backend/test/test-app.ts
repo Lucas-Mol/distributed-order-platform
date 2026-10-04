@@ -14,6 +14,7 @@ export const PASSWORD = 'supersecret1';
 
 export function testConfig(
   rateLimit: Partial<AppConfig['rateLimit']> = {},
+  trustedProxies: string[] = [],
 ): AppConfig {
   return {
     env: 'test',
@@ -21,6 +22,7 @@ export function testConfig(
     database: testDatabaseConfig(),
     jwt: { secret: randomBytes(48).toString('hex'), expiresIn: '15m' },
     rateLimit: { ttlSeconds: 60, max: 10_000, authMax: 10_000, ...rateLimit },
+    trustedProxies,
     aws: {
       s3Bucket: 'test-bucket',
       s3ProductImagePrefix: 'products/',

@@ -18,9 +18,11 @@ export interface AppConfig {
     ttlSeconds: number;
     /** Requests per window, per client IP and route. */
     max: number;
-    /** Stricter per-IP limit for login and registration. */
+    /** Stricter limit for login and registration, per client IP and per email. */
     authMax: number;
   };
+  /** Proxies allowed to set X-Forwarded-For (Express `trust proxy`); empty trusts none. */
+  trustedProxies: string[];
   aws: {
     s3Bucket: string;
     s3ProductImagePrefix: string;

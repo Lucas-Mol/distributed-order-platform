@@ -1,15 +1,31 @@
 import { Injectable } from '@nestjs/common';
 import type { Product } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
-import type { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
+import type {
+  CreateProductDto,
+  ListProductsQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto.js';
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
 
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll({ limit, offset }: PaginationQueryDto): Promise<Product[]> {
+  findAll({ limit, offset, q }: ListProductsQueryDto): Promise<Product[]> {
+    const pattern = q && escapeLike(q);
     return this.prisma.product.findMany({
+      where: pattern
+        ? {
+            OR: [
+              { name: { contains: pattern, mode: 'insensitive' } },
+              { description: { contains: pattern, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: limit,
       skip: offset,

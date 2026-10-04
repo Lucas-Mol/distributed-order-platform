@@ -3,6 +3,7 @@ import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
+import { parseTrustedProxies } from './trusted-proxies.js';
 import type { AppConfig, DatabaseConfig } from './app-config.js';
 
 const LOCAL_ENV = 'local';
@@ -186,6 +187,9 @@ export async function loadAppConfig(
       return value ?? '';
     };
 
+    const trustedProxies = parseTrustedProxies(
+      param(backend, 'backend', 'trusted-proxies'),
+    );
     const config: AppConfig = {
       env: ctx.appEnv,
       port: Number(env.PORT ?? DEFAULT_PORT),
@@ -199,6 +203,7 @@ export async function loadAppConfig(
         max: Number(param(backend, 'backend', 'rate-limit-max')),
         authMax: Number(param(backend, 'backend', 'auth-rate-limit-max')),
       },
+      trustedProxies: trustedProxies ?? [],
       aws: {
         s3Bucket: param(shared, 'shared', 's3-bucket'),
         s3ProductImagePrefix: param(
@@ -242,6 +247,11 @@ export async function loadAppConfig(
           `${prefix}/backend/${key} must be a positive integer`,
         );
       }
+    }
+    if (trustedProxies === null) {
+      throw new ConfigLoadError(
+        `${prefix}/backend/trusted-proxies must be "none" or a comma-separated list of IPs, CIDR ranges, loopback, linklocal or uniquelocal`,
+      );
     }
     if (!Number.isInteger(config.port) || config.port <= 0) {
       throw new ConfigLoadError('PORT must be a positive integer');
