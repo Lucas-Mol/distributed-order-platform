@@ -3,12 +3,14 @@ import {
   GetSecretValueCommand,
   SecretsManagerClient,
 } from '@aws-sdk/client-secrets-manager';
+import { parseTrustedProxies } from './trusted-proxies.js';
 import type { AppConfig, DatabaseConfig } from './app-config.js';
 
 const LOCAL_ENV = 'local';
 const DEFAULT_PORT = 3333;
 const DURATION_PATTERN = /^\d+(ms|s|m|h|d)?$/;
 const MIN_JWT_SECRET_LENGTH = 32;
+const NO_PUBLIC_ENDPOINT = 'default';
 
 export class ConfigLoadError extends Error {
   constructor(message: string) {
@@ -21,6 +23,15 @@ interface AwsContext {
   appEnv: string;
   region: string;
   endpoint?: string;
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 function requireEnv(env: NodeJS.ProcessEnv, name: string): string {
@@ -186,6 +197,10 @@ export async function loadAppConfig(
       return value ?? '';
     };
 
+    const trustedProxies = parseTrustedProxies(
+      param(backend, 'backend', 'trusted-proxies'),
+    );
+    const s3PublicEndpoint = param(shared, 'shared', 's3-public-endpoint');
     const config: AppConfig = {
       env: ctx.appEnv,
       port: Number(env.PORT ?? DEFAULT_PORT),
@@ -199,13 +214,21 @@ export async function loadAppConfig(
         max: Number(param(backend, 'backend', 'rate-limit-max')),
         authMax: Number(param(backend, 'backend', 'auth-rate-limit-max')),
       },
+      trustedProxies: trustedProxies ?? [],
       aws: {
+        region: ctx.region,
+        endpoint: ctx.endpoint,
         s3Bucket: param(shared, 'shared', 's3-bucket'),
+        s3PublicEndpoint:
+          s3PublicEndpoint === NO_PUBLIC_ENDPOINT
+            ? undefined
+            : s3PublicEndpoint,
         s3ProductImagePrefix: param(
           shared,
           'shared',
           's3-product-image-prefix',
         ),
+        s3ThumbnailPrefix: param(shared, 'shared', 's3-thumbnail-prefix'),
         s3InvoicePrefix: param(shared, 'shared', 's3-invoice-prefix'),
         sqsOrdersQueue: param(shared, 'shared', 'sqs-orders-queue'),
         dynamoCartsTable: param(shared, 'shared', 'dynamo-carts-table'),
@@ -242,6 +265,34 @@ export async function loadAppConfig(
           `${prefix}/backend/${key} must be a positive integer`,
         );
       }
+    }
+    if (
+      config.aws.s3PublicEndpoint !== undefined &&
+      !isHttpUrl(config.aws.s3PublicEndpoint)
+    ) {
+      throw new ConfigLoadError(
+        `${prefix}/shared/s3-public-endpoint must be "${NO_PUBLIC_ENDPOINT}" or an http(s) URL`,
+      );
+    }
+    for (const [key, value] of [
+      ['s3-product-image-prefix', config.aws.s3ProductImagePrefix],
+      ['s3-thumbnail-prefix', config.aws.s3ThumbnailPrefix],
+    ] as const) {
+      if (!value.endsWith('/')) {
+        throw new ConfigLoadError(`${prefix}/shared/${key} must end with "/"`);
+      }
+    }
+    const { s3ProductImagePrefix: images, s3ThumbnailPrefix: thumbs } =
+      config.aws;
+    if (images.startsWith(thumbs) || thumbs.startsWith(images)) {
+      throw new ConfigLoadError(
+        `${prefix}/shared/s3-product-image-prefix and s3-thumbnail-prefix must not overlap, or the thumbnail Lambda would reprocess its own output`,
+      );
+    }
+    if (trustedProxies === null) {
+      throw new ConfigLoadError(
+        `${prefix}/backend/trusted-proxies must be "none" or a comma-separated list of IPs, CIDR ranges, loopback, linklocal or uniquelocal`,
+      );
     }
     if (!Number.isInteger(config.port) || config.port <= 0) {
       throw new ConfigLoadError('PORT must be a positive integer');

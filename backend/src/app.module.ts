@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module.js';
 import { CartModule } from './cart/cart.module.js';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
+import { TrustedProxiesSetup } from './common/http/trusted-proxies.js';
 import { throttlerOptions } from './common/throttling/throttling.js';
 import { appConfig } from './config/app.config.js';
 import { HealthModule } from './health/health.module.js';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     HealthModule,
   ],
   providers: [
+    TrustedProxiesSetup,
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     {
       provide: APP_PIPE,

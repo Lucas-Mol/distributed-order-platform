@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
@@ -14,6 +14,7 @@ export const PASSWORD = 'supersecret1';
 
 export function testConfig(
   rateLimit: Partial<AppConfig['rateLimit']> = {},
+  trustedProxies: string[] = [],
 ): AppConfig {
   return {
     env: 'test',
@@ -21,9 +22,14 @@ export function testConfig(
     database: testDatabaseConfig(),
     jwt: { secret: randomBytes(48).toString('hex'), expiresIn: '15m' },
     rateLimit: { ttlSeconds: 60, max: 10_000, authMax: 10_000, ...rateLimit },
+    trustedProxies,
     aws: {
+      region: 'us-east-1',
+      endpoint: 'http://localhost:4566',
       s3Bucket: 'test-bucket',
+      s3PublicEndpoint: 'http://localhost:4566',
       s3ProductImagePrefix: 'products/',
+      s3ThumbnailPrefix: 'thumbnails/',
       s3InvoicePrefix: 'invoices/',
       sqsOrdersQueue: 'orders-queue',
       dynamoCartsTable: 'carts',
@@ -38,11 +44,16 @@ export class TestApp {
     readonly prisma: PrismaService,
   ) {}
 
-  static async create(config: AppConfig = testConfig()): Promise<TestApp> {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(appConfig.KEY)
-      .useValue(config)
-      .compile();
+  static async create(
+    config: AppConfig = testConfig(),
+    customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) =>
+      b,
+  ): Promise<TestApp> {
+    const moduleRef = await customize(
+      Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(appConfig.KEY)
+        .useValue(config),
+    ).compile();
     const app = moduleRef.createNestApplication<INestApplication<App>>();
     await app.listen(0);
     return new TestApp(app, app.get(PrismaService));

@@ -9,12 +9,18 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { Auth } from '../auth/auth.decorator.js';
 import { Role } from '../generated/prisma/client.js';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
+import {
+  AttachImageDto,
+  CreateImageUploadDto,
+  CreateProductDto,
+  ListProductsQueryDto,
+  UpdateProductDto,
+} from './dto/product.dto.js';
 import { ProductsService } from './products.service.js';
 
 @Controller('products')
@@ -22,7 +28,7 @@ export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
+  findAll(@Query() query: ListProductsQueryDto) {
     return this.products.findAll(query);
   }
 
@@ -51,5 +57,29 @@ export class ProductsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.products.remove(id);
+  }
+
+  @Post(':id/image-upload-url')
+  @Auth(Role.MANAGER)
+  createImageUpload(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: CreateImageUploadDto,
+  ) {
+    return this.products.createImageUpload(id, dto);
+  }
+
+  @Put(':id/image')
+  @Auth(Role.MANAGER)
+  attachImage(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: AttachImageDto,
+  ) {
+    return this.products.attachImage(id, dto.key);
+  }
+
+  @Delete(':id/image')
+  @Auth(Role.MANAGER)
+  removeImage(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
+    return this.products.removeImage(id);
   }
 }
