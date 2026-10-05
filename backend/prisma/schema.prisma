@@ -66,9 +66,26 @@ model Order {
   user       User        @relation(fields: [userId], references: [id])
   items      OrderItem[]
   payments   Payment[]
+  events     OrderEvent[]
 
   @@index([userId, createdAt])
   @@map("orders")
+}
+
+model OrderEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderId     String    @map("order_id") @db.Uuid
+  event       String
+  payload     Json
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([publishedAt, createdAt])
+  @@index([orderId])
+  @@map("order_events")
 }
 
 model OrderItem {

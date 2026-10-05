@@ -21,6 +21,7 @@ backend/src/generated/
 
 # Go
 pdf-service/bin/
+pdf-service/.cache/
 *.exe
 
 # Python

@@ -11,6 +11,7 @@ const DEFAULT_PORT = 3333;
 const DURATION_PATTERN = /^\d+(ms|s|m|h|d)?$/;
 const MIN_JWT_SECRET_LENGTH = 32;
 const NO_PUBLIC_ENDPOINT = 'default';
+const OUTBOX_POLL_INTERVAL_MS = 1000;
 
 export class ConfigLoadError extends Error {
   constructor(message: string) {
@@ -215,6 +216,7 @@ export async function loadAppConfig(
         authMax: Number(param(backend, 'backend', 'auth-rate-limit-max')),
       },
       trustedProxies: trustedProxies ?? [],
+      outbox: { pollIntervalMs: OUTBOX_POLL_INTERVAL_MS },
       aws: {
         region: ctx.region,
         endpoint: ctx.endpoint,

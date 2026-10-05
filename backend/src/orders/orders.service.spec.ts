@@ -11,20 +11,29 @@ function createTx() {
   return {
     product: {
       findMany: vi.fn().mockResolvedValue([
-        { id: MUG, priceCents: 3990 },
-        { id: NOTEBOOK, priceCents: 2490 },
+        { id: MUG, name: 'Mug', priceCents: 3990 },
+        { id: NOTEBOOK, name: 'Notebook', priceCents: 2490 },
       ]),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     order: {
-      create: vi
-        .fn()
-        .mockImplementation(({ data }) =>
-          Promise.resolve({ id: 'order-1', ...data }),
-        ),
+      create: vi.fn().mockImplementation(({ data }) =>
+        Promise.resolve({
+          id: 'order-1',
+          ...data,
+          items: data.items.create,
+          createdAt: new Date('2026-01-15T12:00:00Z'),
+        }),
+      ),
       findMany: vi.fn(),
       findFirst: vi.fn(),
     },
+    user: {
+      findUniqueOrThrow: vi
+        .fn()
+        .mockResolvedValue({ email: 'customer@example.com' }),
+    },
+    orderEvent: { create: vi.fn().mockResolvedValue({}) },
     cartItem: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   };
 }
@@ -71,6 +80,36 @@ describe('OrdersService', () => {
     });
   });
 
+  it('writes the order.created event in the same transaction', async () => {
+    await service.create(USER, { items: [{ productId: MUG, quantity: 2 }] });
+
+    expect(tx.orderEvent.create).toHaveBeenCalledWith({
+      data: {
+        orderId: 'order-1',
+        event: 'order.created',
+        payload: {
+          event: 'order.created',
+          version: 1,
+          occurred_at: '2026-01-15T12:00:00.000Z',
+          data: {
+            order_id: 'order-1',
+            user_id: USER,
+            user_email: 'customer@example.com',
+            total_cents: 2 * 3990,
+            items: [
+              {
+                product_id: MUG,
+                name: 'Mug',
+                quantity: 2,
+                unit_price_cents: 3990,
+              },
+            ],
+          },
+        },
+      },
+    });
+  });
+
   it('reserves stock in a fixed product order', async () => {
     await service.create(USER, {
       items: [
@@ -83,7 +122,9 @@ describe('OrdersService', () => {
   });
 
   it('rejects unknown products', async () => {
-    tx.product.findMany.mockResolvedValue([{ id: MUG, priceCents: 3990 }]);
+    tx.product.findMany.mockResolvedValue([
+      { id: MUG, name: 'Mug', priceCents: 3990 },
+    ]);
     await expect(
       service.create(USER, {
         items: [
@@ -101,6 +142,7 @@ describe('OrdersService', () => {
       service.create(USER, { items: [{ productId: MUG, quantity: 5 }] }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(tx.order.create).not.toHaveBeenCalled();
+    expect(tx.orderEvent.create).not.toHaveBeenCalled();
   });
 
   it("returns 404 for another user's order", async () => {
