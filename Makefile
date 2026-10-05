@@ -1,7 +1,12 @@
 SHELL := /bin/bash
 AWSLOCAL := aws --endpoint-url http://localhost:4566
+GO_IMAGE := golang:1.27-alpine
+# Go runs in a container; module and build caches live in pdf-service/.cache.
+GO := docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
+	-e GOMODCACHE=/src/.cache/mod -e GOCACHE=/src/.cache/build \
+	-v "$(CURDIR)/pdf-service:/src" -w /src $(GO_IMAGE)
 
-.PHONY: help up up-all down logs ps reset aws-resources lambdas
+.PHONY: help up up-all down logs ps reset aws-resources lambdas pdf-tidy pdf-test pdf-lint
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
@@ -32,6 +37,15 @@ lambdas: ## Build Lambda packages and redeploy them if LocalStack is running
 	else \
 		echo "[lambdas] LocalStack is not running; the package is deployed on its next start"; \
 	fi
+
+pdf-tidy: ## Sync pdf-service go.mod/go.sum with its imports
+	$(GO) go mod tidy
+
+pdf-test: ## Run pdf-service unit tests
+	$(GO) go test ./...
+
+pdf-lint: ## Check pdf-service formatting and run go vet
+	$(GO) sh -c 'unformatted=$$(gofmt -l cmd internal); if [ -n "$$unformatted" ]; then echo "gofmt needed:"; echo "$$unformatted"; exit 1; fi; go vet ./...'
 
 aws-resources: ## List resources created in LocalStack
 	@echo "--- s3 ---";       $(AWSLOCAL) s3 ls

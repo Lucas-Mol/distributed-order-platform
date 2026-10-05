@@ -7,6 +7,7 @@ import { OrderStatus, type Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
+import { ORDER_CREATED, orderCreatedEvent } from './order-events.js';
 
 const orderWithItems = {
   include: { items: true },
@@ -32,9 +33,10 @@ export class OrdersService {
     return this.prisma.$transaction(async (tx) => {
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, priceCents: true },
+        select: { id: true, name: true, priceCents: true },
       });
       const prices = new Map(products.map((p) => [p.id, p.priceCents]));
+      const names = new Map(products.map((p) => [p.id, p.name]));
       const missing = productIds.filter((id) => !prices.has(id));
       if (missing.length > 0) {
         throw new NotFoundException(
@@ -73,6 +75,18 @@ export class OrdersService {
           items: { create: items },
         },
         ...orderWithItems,
+      });
+
+      const { email } = await tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { email: true },
+      });
+      await tx.orderEvent.create({
+        data: {
+          orderId: order.id,
+          event: ORDER_CREATED,
+          payload: orderCreatedEvent(order, email, names),
+        },
       });
 
       await tx.cartItem.deleteMany({ where: { userId } });

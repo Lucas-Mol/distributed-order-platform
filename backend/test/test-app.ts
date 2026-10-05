@@ -8,6 +8,10 @@ import type { AppConfig } from '../src/config/app-config.js';
 import { appConfig } from '../src/config/app.config.js';
 import type { Role } from '../src/generated/prisma/client.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import {
+  QueuePublisher,
+  type QueueName,
+} from '../src/queue/queue-publisher.js';
 import { testDatabaseConfig } from './test-database.js';
 
 export const PASSWORD = 'supersecret1';
@@ -23,6 +27,7 @@ export function testConfig(
     jwt: { secret: randomBytes(48).toString('hex'), expiresIn: '15m' },
     rateLimit: { ttlSeconds: 60, max: 10_000, authMax: 10_000, ...rateLimit },
     trustedProxies,
+    outbox: { pollIntervalMs: 0 },
     aws: {
       region: 'us-east-1',
       endpoint: 'http://localhost:4566',
@@ -38,10 +43,24 @@ export function testConfig(
   };
 }
 
+export class FakeQueuePublisher extends QueuePublisher {
+  readonly messages: { queue: QueueName; body: string }[] = [];
+  failWith: Error | null = null;
+
+  publish(queue: QueueName, body: string): Promise<void> {
+    if (this.failWith) {
+      return Promise.reject(this.failWith);
+    }
+    this.messages.push({ queue, body });
+    return Promise.resolve();
+  }
+}
+
 export class TestApp {
   private constructor(
     readonly app: INestApplication<App>,
     readonly prisma: PrismaService,
+    readonly queue: FakeQueuePublisher,
   ) {}
 
   static async create(
@@ -49,14 +68,17 @@ export class TestApp {
     customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) =>
       b,
   ): Promise<TestApp> {
+    const queue = new FakeQueuePublisher();
     const moduleRef = await customize(
       Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(appConfig.KEY)
-        .useValue(config),
+        .useValue(config)
+        .overrideProvider(QueuePublisher)
+        .useValue(queue),
     ).compile();
     const app = moduleRef.createNestApplication<INestApplication<App>>();
     await app.listen(0);
-    return new TestApp(app, app.get(PrismaService));
+    return new TestApp(app, app.get(PrismaService), queue);
   }
 
   http() {
@@ -65,7 +87,7 @@ export class TestApp {
 
   async reset(): Promise<void> {
     await this.prisma.$executeRawUnsafe(
-      'TRUNCATE cart_items, payments, order_items, orders, products, users CASCADE',
+      'TRUNCATE cart_items, payments, order_events, order_items, orders, products, users CASCADE',
     );
   }
 

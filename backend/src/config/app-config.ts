@@ -23,6 +23,10 @@ export interface AppConfig {
   };
   /** Proxies allowed to set X-Forwarded-For (Express `trust proxy`); empty trusts none. */
   trustedProxies: string[];
+  outbox: {
+    /** Delay between order event dispatch runs; 0 disables the loop (tests drive it by hand). */
+    pollIntervalMs: number;
+  };
   aws: {
     region: string;
     endpoint?: string;
