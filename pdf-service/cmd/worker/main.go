@@ -14,12 +14,16 @@ import (
 	"time"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 
 	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/config"
 	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/consumer"
 	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/invoice"
+	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/pdf"
+	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/publisher"
+	"github.com/Lucas-Mol/order-platform-microservice-project/pdf-service/internal/storage"
 )
 
 const shutdownTimeout = 5 * time.Second
@@ -44,10 +48,21 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	queue, err := consumer.NewSQSQueue(ctx, sqs.NewFromConfig(awsCfg), cfg.OrdersQueue, cfg.WorkerConcurrency)
+	sqsClient := sqs.NewFromConfig(awsCfg)
+	queue, err := consumer.NewSQSQueue(ctx, sqsClient, cfg.OrdersQueue, cfg.WorkerConcurrency)
 	if err != nil {
 		return err
 	}
+	invoiceReady, err := publisher.NewSQSPublisher(ctx, sqsClient, cfg.InvoiceReadyQueue)
+	if err != nil {
+		return err
+	}
+	usePathStyle := os.Getenv("AWS_ENDPOINT_URL") != ""
+	store, err := storage.NewS3Store(ctx, s3.NewFromConfig(awsCfg, func(o *s3.Options) { o.UsePathStyle = usePathStyle }), cfg.Bucket)
+	if err != nil {
+		return err
+	}
+	handler := invoice.NewHandler(log, store, invoiceReady, pdf.RenderInvoice, cfg.InvoicePrefix)
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
@@ -62,11 +77,12 @@ func run(log *slog.Logger) error {
 		close(serverErr)
 	}()
 
-	log.Info("worker started", "queue", cfg.OrdersQueue, "workers", cfg.WorkerConcurrency, "port", cfg.Port)
+	log.Info("worker started", "queue", cfg.OrdersQueue, "publishes_to", cfg.InvoiceReadyQueue,
+		"bucket", cfg.Bucket, "workers", cfg.WorkerConcurrency, "port", cfg.Port)
 	consumerCtx, cancelConsumer := context.WithCancel(ctx)
 	consumerDone := make(chan struct{})
 	go func() {
-		consumer.New(queue, invoice.NewHandler(log), cfg.WorkerConcurrency, log).Run(consumerCtx)
+		consumer.New(queue, handler, cfg.WorkerConcurrency, log).Run(consumerCtx)
 		close(consumerDone)
 	}()
 
