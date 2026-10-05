@@ -4,9 +4,12 @@ import { getToken } from './session';
 import type {
   AccessToken,
   Cart,
+  ImageContentType,
+  ImageUpload,
   Order,
   Pagination,
   Product,
+  ProductInput,
   User,
 } from './types';
 
@@ -110,6 +113,41 @@ export const api = {
     ),
   getProduct: (id: string) =>
     request<Product>(`/products/${encodeURIComponent(id)}`),
+  createProduct: (input: ProductInput) =>
+    request<Product>('/products', { method: 'POST', body: input, auth: true }),
+  updateProduct: (id: string, input: Partial<ProductInput>) =>
+    request<Product>(`/products/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: input,
+      auth: true,
+    }),
+  deleteProduct: (id: string) =>
+    request<void>(`/products/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      auth: true,
+    }),
+  createImageUpload: (
+    id: string,
+    contentType: ImageContentType,
+    contentLength: number,
+  ) =>
+    request<ImageUpload>(
+      `/products/${encodeURIComponent(id)}/image-upload-url`,
+      { method: 'POST', body: { contentType, contentLength }, auth: true },
+    ),
+  attachImage: (id: string, key: string) =>
+    request<Product>(`/products/${encodeURIComponent(id)}/image`, {
+      method: 'PUT',
+      body: { key },
+      auth: true,
+    }),
+  removeImage: (id: string) =>
+    request<Product>(`/products/${encodeURIComponent(id)}/image`, {
+      method: 'DELETE',
+      auth: true,
+    }),
+
+  me: () => request<User>('/users/me', { auth: true }),
 
   getCart: () => request<Cart>('/cart', { auth: true }),
   setCartItem: (productId: string, quantity: number) =>

@@ -24,8 +24,12 @@ export interface AppConfig {
   /** Proxies allowed to set X-Forwarded-For (Express `trust proxy`); empty trusts none. */
   trustedProxies: string[];
   aws: {
+    region: string;
+    endpoint?: string;
     s3Bucket: string;
+    s3PublicEndpoint?: string;
     s3ProductImagePrefix: string;
+    s3ThumbnailPrefix: string;
     s3InvoicePrefix: string;
     sqsOrdersQueue: string;
     dynamoCartsTable: string;

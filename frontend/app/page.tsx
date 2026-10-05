@@ -50,7 +50,7 @@ export default async function CatalogPage(props: PageProps<'/'>) {
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6">
             {products.map((product) => (
               <li key={product.id}>
-                <ProductCard product={product} />
+                <ProductCard product={product} href={`/products/${product.id}`} />
               </li>
             ))}
           </ul>

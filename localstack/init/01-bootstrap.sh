@@ -19,14 +19,14 @@ echo "[bootstrap] region=${REGION}"
 
 # ---------- S3 ----------
 awslocal s3api create-bucket --bucket "${BUCKET}" --region "${REGION}"
-awslocal s3api put-bucket-cors --bucket "${BUCKET}" --cors-configuration '{
-  "CORSRules": [{
-    "AllowedHeaders": ["*"],
-    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-    "AllowedOrigins": ["*"],
-    "ExposeHeaders": ["ETag"]
+awslocal s3api put-bucket-cors --bucket "${BUCKET}" --cors-configuration "{
+  \"CORSRules\": [{
+    \"AllowedHeaders\": [\"Content-Type\"],
+    \"AllowedMethods\": [\"PUT\"],
+    \"AllowedOrigins\": [\"${FRONTEND_ORIGIN:-http://localhost:3000}\"],
+    \"MaxAgeSeconds\": 3000
   }]
-}'
+}"
 echo "[bootstrap] bucket ${BUCKET} created"
 
 # ---------- SQS (queue + DLQ with redrive) ----------
@@ -70,13 +70,18 @@ echo "[bootstrap] table ${STOCK_TABLE} created"
 
 # ---------- SSM Parameter Store ----------
 put_param() {
-  awslocal ssm put-parameter --name "${SSM_PREFIX}/$1" --value "$2" \
-    --type String --overwrite >/dev/null
+  local input
+  input=$(NAME="${SSM_PREFIX}/$1" VALUE="$2" python3 -c '
+import json, os
+print(json.dumps({"Name": os.environ["NAME"], "Value": os.environ["VALUE"], "Type": "String", "Overwrite": True}))')
+  awslocal ssm put-parameter --cli-input-json "${input}" >/dev/null
   echo "[bootstrap] parameter ${SSM_PREFIX}/$1 set"
 }
 
 put_param shared/s3-bucket "${BUCKET}"
 put_param shared/s3-product-image-prefix "${S3_PRODUCT_IMAGE_PREFIX:-products/}"
+put_param shared/s3-thumbnail-prefix "${S3_THUMBNAIL_PREFIX:-thumbnails/}"
+put_param shared/s3-public-endpoint "${S3_PUBLIC_ENDPOINT:-http://localhost:4566}"
 put_param shared/s3-invoice-prefix "${S3_INVOICE_PREFIX:-invoices/}"
 put_param shared/sqs-orders-queue "${ORDERS_QUEUE}"
 put_param shared/sqs-invoice-ready-queue "${INVOICE_QUEUE}"

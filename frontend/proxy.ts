@@ -3,7 +3,7 @@ import { isTokenActive, readTokenClaims } from './lib/jwt';
 import { loginPath } from './lib/navigation';
 import { SESSION_COOKIE } from './lib/session-cookie';
 
-const PROTECTED_PREFIXES = ['/cart', '/checkout', '/orders'];
+const PROTECTED_PREFIXES = ['/cart', '/checkout', '/orders', '/admin'];
 
 function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
@@ -11,15 +11,24 @@ function isProtected(pathname: string): boolean {
   );
 }
 
+function storageOrigin(): string {
+  const value = process.env.S3_PUBLIC_ORIGIN;
+  if (!value) {
+    return '';
+  }
+  return ` ${new URL(value).origin}`;
+}
+
 function contentSecurityPolicy(nonce: string): string {
   const isDev = process.env.NODE_ENV === 'development';
+  const storage = storageOrigin();
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
     `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' blob: data:",
+    `img-src 'self' blob: data:${storage}`,
     "font-src 'self'",
-    "connect-src 'self'",
+    `connect-src 'self'${storage}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -55,6 +64,7 @@ export const config = {
     '/cart/:path*',
     '/checkout/:path*',
     '/orders/:path*',
+    '/admin/:path*',
     {
       source: '/((?!_next/static|_next/image|icon.svg).*)',
       missing: [

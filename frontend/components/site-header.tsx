@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { logout } from '@/app/actions/auth';
-import { getSession } from '@/lib/session';
+import { getCurrentUser, hasRole } from '@/lib/current-user';
 import { NavPill } from './nav-pill';
 
 export async function SiteHeader() {
-  const session = await getSession();
+  const user = await getCurrentUser();
   return (
     <header className="border-b-3 border-ink bg-sun">
       <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-8">
@@ -13,15 +13,23 @@ export async function SiteHeader() {
         </Link>
         <nav aria-label="Main" className="flex flex-wrap items-center gap-2">
           <NavPill href="/">Catalog</NavPill>
-          {session && <NavPill href="/orders">My orders</NavPill>}
+          {user && <NavPill href="/orders">My orders</NavPill>}
+          {hasRole(user, 'MANAGER') && (
+            <NavPill href="/admin/products">
+              Products
+              <span className="rounded-[4px] bg-ink px-1.5 py-0.5 text-[10px] font-bold tracking-[0.06em] text-sun">
+                MANAGER
+              </span>
+            </NavPill>
+          )}
         </nav>
         <div className="flex flex-wrap items-center gap-2">
-          {session ? (
+          {user ? (
             <>
               <Link href="/cart" className="btn btn-accent">
                 Cart
               </Link>
-              <span className="nav-pill hidden lg:inline-flex" title={session.email}>
+              <span className="nav-pill hidden lg:inline-flex" title={user.email}>
                 <svg
                   aria-hidden="true"
                   viewBox="0 0 24 24"
@@ -31,7 +39,7 @@ export async function SiteHeader() {
                   <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
                 </svg>
                 <span className="sr-only">Signed in as </span>
-                <span className="max-w-48 truncate">{session.email}</span>
+                <span className="max-w-48 truncate">{user.email}</span>
               </span>
               <form action={logout}>
                 <button type="submit" className="btn btn-secondary">

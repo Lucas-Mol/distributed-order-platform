@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AddToCartForm } from '@/components/add-to-cart-form';
+import { ProductImage } from '@/components/product-image';
 import { api } from '@/lib/api';
 import { formatCents } from '@/lib/format';
 import { loadOrRedirect } from '@/lib/guards';
@@ -18,9 +19,12 @@ export default async function ProductPage(props: PageProps<'/products/[id]'>) {
         ← Catalog
       </Link>
       <div className="grid gap-8 md:grid-cols-2">
-        <div className="flex min-h-[280px] items-center justify-center rounded-xl border-3 border-ink bg-lilac font-bold text-lilac-ink shadow-lg">
-          No image
-        </div>
+        <ProductImage
+          sources={[product.imageUrl]}
+          alt={product.name}
+          fit="contain"
+          className="max-h-[75vh] w-full self-start overflow-hidden rounded-xl border-3 border-ink shadow-lg"
+        />
         <div className="panel flex flex-col gap-5 p-7">
           <h1 className="font-display text-display-md">{product.name}</h1>
           <span className="self-start rounded-sm border-3 border-ink bg-accent px-3 py-1 font-display text-display-sm">

@@ -19,8 +19,25 @@ export interface Product {
   description: string | null;
   priceCents: number;
   imageKey: string | null;
+  imageUrl: string | null;
+  thumbnailUrl: string | null;
   stock: number;
   createdAt: string;
+}
+
+export interface ProductInput {
+  name: string;
+  description?: string;
+  priceCents: number;
+  stock: number;
+}
+
+export type ImageContentType = 'image/png' | 'image/jpeg';
+
+export interface ImageUpload {
+  uploadUrl: string;
+  key: string;
+  expiresInSeconds: number;
 }
 
 export interface CartItem {
@@ -69,3 +86,8 @@ export const MAX_ITEM_QUANTITY = 100;
 export const PAGE_SIZE = 20;
 
 export const MAX_SEARCH_LENGTH = 100;
+
+export const MAX_PRICE_CENTS = 100_000_000;
+export const MAX_STOCK = 1_000_000;
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export const IMAGE_CONTENT_TYPES: ImageContentType[] = ['image/png', 'image/jpeg'];

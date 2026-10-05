@@ -14,6 +14,8 @@ const baseEnv = {
 const sharedParams: Record<string, string> = {
   's3-bucket': 'orders-platform',
   's3-product-image-prefix': 'products/',
+  's3-thumbnail-prefix': 'thumbnails/',
+  's3-public-endpoint': 'http://localhost:4566',
   's3-invoice-prefix': 'invoices/',
   'sqs-orders-queue': 'orders-queue',
   'dynamo-carts-table': 'carts',
@@ -89,6 +91,34 @@ describe('loadAppConfig', () => {
     expect(config.aws.sqsOrdersQueue).toBe('orders-queue');
     expect(config.rateLimit).toEqual({ ttlSeconds: 60, max: 100, authMax: 10 });
     expect(config.trustedProxies).toEqual(['loopback', '10.0.0.0/8']);
+    expect(config.aws).toMatchObject({
+      region: 'us-east-1',
+      endpoint: 'http://localhost:4566',
+      s3PublicEndpoint: 'http://localhost:4566',
+      s3ThumbnailPrefix: 'thumbnails/',
+    });
+  });
+
+  it('uses the AWS default public endpoint when set to "default"', async () => {
+    mockAws({ shared: { ...sharedParams, 's3-public-endpoint': 'default' } });
+    const config = await loadAppConfig({ ...baseEnv });
+    expect(config.aws.s3PublicEndpoint).toBeUndefined();
+  });
+
+  it('rejects a public endpoint that is not an http(s) URL', async () => {
+    mockAws({ shared: { ...sharedParams, 's3-public-endpoint': 'localhost' } });
+    await expect(loadAppConfig({ ...baseEnv })).rejects.toThrow(
+      /s3-public-endpoint must be "default" or an http\(s\) URL/,
+    );
+  });
+
+  it('rejects overlapping image and thumbnail prefixes', async () => {
+    mockAws({
+      shared: { ...sharedParams, 's3-thumbnail-prefix': 'products/thumbs/' },
+    });
+    await expect(loadAppConfig({ ...baseEnv })).rejects.toThrow(
+      /must not overlap/,
+    );
   });
 
   it('trusts no proxy when trusted-proxies is "none"', async () => {
