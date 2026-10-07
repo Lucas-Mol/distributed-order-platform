@@ -1,12 +1,14 @@
 SHELL := /bin/bash
 AWSLOCAL := aws --endpoint-url http://localhost:4566
 GO_IMAGE := golang:1.27-alpine
+PYTHON_IMAGE := python:3.12-slim
+LAMBDAS := image_thumbnail notify_order
 # Go runs in a container; module and build caches live in pdf-service/.cache.
 GO := docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
 	-e GOMODCACHE=/src/.cache/mod -e GOCACHE=/src/.cache/build \
 	-v "$(CURDIR)/pdf-service:/src" -w /src $(GO_IMAGE)
 
-.PHONY: help up up-all down logs ps reset aws-resources lambdas pdf-tidy pdf-test pdf-lint
+.PHONY: help up up-all down logs ps reset aws-resources lambdas lambda-test pdf-tidy pdf-test pdf-lint
 
 help: ## List available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
@@ -30,13 +32,20 @@ reset: ## Stop everything and DELETE volumes (postgres and localstack data)
 	docker compose --profile app down -v
 
 lambdas: ## Build Lambda packages and redeploy them if LocalStack is running
-	docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
-		-v "$(CURDIR)/lambdas/image_thumbnail:/src" -w /src python:3.12-slim bash build.sh
+	for fn in $(LAMBDAS); do \
+		docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
+			-v "$(CURDIR)/lambdas/$$fn:/src" -w /src $(PYTHON_IMAGE) bash build.sh || exit 1; \
+	done
 	@if [ -n "$$(docker compose ps -q --status running localstack)" ]; then \
 		docker compose exec -T localstack bash /etc/localstack/init/ready.d/02-lambdas.sh; \
 	else \
 		echo "[lambdas] LocalStack is not running; the package is deployed on its next start"; \
 	fi
+
+lambda-test: ## Run notify_order Lambda unit tests
+	docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
+		-v "$(CURDIR)/lambdas/notify_order:/src:ro" -w /src $(PYTHON_IMAGE) sh -c \
+		'pip install --quiet --no-cache-dir --user -r requirements-dev.txt && python -m unittest -v'
 
 pdf-tidy: ## Sync pdf-service go.mod/go.sum with its imports
 	$(GO) go mod tidy

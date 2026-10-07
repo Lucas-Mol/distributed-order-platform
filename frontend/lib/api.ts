@@ -6,6 +6,7 @@ import type {
   Cart,
   ImageContentType,
   ImageUpload,
+  InvoiceLink,
   Order,
   Pagination,
   Product,
@@ -172,4 +173,8 @@ export const api = {
     request<Order[]>(`/orders?${paginate(page)}`, { auth: true }),
   getOrder: (id: string) =>
     request<Order>(`/orders/${encodeURIComponent(id)}`, { auth: true }),
+  getOrderInvoice: (id: string) =>
+    request<InvoiceLink>(`/orders/${encodeURIComponent(id)}/invoice`, {
+      auth: true,
+    }),
 };

@@ -71,6 +71,11 @@ export interface Order {
   items: OrderItem[];
 }
 
+export interface InvoiceLink {
+  url: string;
+  expiresAt: string;
+}
+
 export interface AccessToken {
   accessToken: string;
   tokenType: 'Bearer';

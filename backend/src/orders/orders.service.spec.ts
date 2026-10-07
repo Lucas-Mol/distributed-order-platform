@@ -1,6 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { StorageService } from '../storage/storage.service.js';
 import { OrdersService } from './orders.service.js';
 
 const MUG = '8ec62dad-7ed4-4812-861d-5b8ca2a3a321';
@@ -41,6 +42,7 @@ function createTx() {
 describe('OrdersService', () => {
   let service: OrdersService;
   let tx: ReturnType<typeof createTx>;
+  let storage: { presignAttachment: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     tx = createTx();
@@ -48,8 +50,15 @@ describe('OrdersService', () => {
       ...tx,
       $transaction: vi.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
     };
+    storage = {
+      presignAttachment: vi.fn().mockResolvedValue('http://s3.test/invoice'),
+    };
     const moduleRef = await Test.createTestingModule({
-      providers: [OrdersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        OrdersService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: StorageService, useValue: storage },
+      ],
     }).compile();
     service = moduleRef.get(OrdersService);
   });
@@ -153,5 +162,48 @@ describe('OrdersService', () => {
     expect(tx.order.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'order-x', userId: USER } }),
     );
+  });
+
+  describe('invoiceUrl', () => {
+    const INVOICE_KEY = 'invoices/order-1.pdf';
+
+    it('presigns a short-lived download for a ready order', async () => {
+      tx.order.findFirst.mockResolvedValue({
+        id: 'order-1',
+        status: 'READY',
+        invoiceKey: INVOICE_KEY,
+      });
+      const link = await service.invoiceUrl(USER, 'order-1');
+
+      expect(link.url).toBe('http://s3.test/invoice');
+      expect(new Date(link.expiresAt).getTime()).toBeGreaterThan(Date.now());
+      expect(storage.presignAttachment).toHaveBeenCalledWith(
+        INVOICE_KEY,
+        'invoice-order-1.pdf',
+        300,
+      );
+      expect(tx.order.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'order-1', userId: USER } }),
+      );
+    });
+
+    it("returns 404 for another user's order", async () => {
+      tx.order.findFirst.mockResolvedValue(null);
+      await expect(service.invoiceUrl(USER, 'order-x')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it.each([
+      { status: 'PROCESSING', invoiceKey: null },
+      { status: 'CANCELLED', invoiceKey: INVOICE_KEY },
+      { status: 'READY', invoiceKey: null },
+    ])('returns 409 when $status with key $invoiceKey', async (order) => {
+      tx.order.findFirst.mockResolvedValue({ id: 'order-1', ...order });
+      await expect(service.invoiceUrl(USER, 'order-1')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(storage.presignAttachment).not.toHaveBeenCalled();
+    });
   });
 });

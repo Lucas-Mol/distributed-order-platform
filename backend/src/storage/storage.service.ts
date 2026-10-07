@@ -84,6 +84,22 @@ export class StorageService implements OnModuleDestroy {
     );
   }
 
+  presignAttachment(
+    key: string,
+    filename: string,
+    expiresIn: number,
+  ): Promise<string> {
+    return getSignedUrl(
+      this.publicClient,
+      new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        ResponseContentDisposition: `attachment; filename="${filename}"`,
+      }),
+      { expiresIn },
+    );
+  }
+
   async head(key: string): Promise<StoredObject | null> {
     try {
       const result = await this.client.send(

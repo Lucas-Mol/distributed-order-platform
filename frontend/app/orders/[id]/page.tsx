@@ -28,6 +28,9 @@ export default async function OrderPage(props: PageProps<'/orders/[id]'>) {
     products.flatMap((product) => (product ? [[product.id, product.name]] : [])),
   );
   const cancelled = order.status === 'CANCELLED';
+  const invoiceAvailable =
+    order.invoiceKey !== null &&
+    (order.status === 'READY' || order.status === 'DELIVERED');
 
   return (
     <div className="page flex flex-col gap-8">
@@ -58,6 +61,14 @@ export default async function OrderPage(props: PageProps<'/orders/[id]'>) {
           <OrderStatusBadge status={order.status} />
         </div>
         <OrderProgress status={order.status} />
+        {invoiceAvailable && (
+          <a
+            href={`/orders/${encodeURIComponent(order.id)}/invoice`}
+            className="btn btn-primary self-start"
+          >
+            Download invoice
+          </a>
+        )}
       </section>
       <div className="card overflow-x-auto">
         <table className="data-table">

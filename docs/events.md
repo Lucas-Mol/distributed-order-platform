@@ -57,13 +57,13 @@ Consumed by the **`notify-order` Lambda (Python)**.
 }
 ```
 
-The Lambda updates `orders.status` to `READY` only if the current status is `PROCESSING` — reprocessing never downgrades an order that is already `DELIVERED`.
+The Lambda updates `orders.status` to `READY` and stores `invoice_key` only if the current status is `CREATED` or `PROCESSING`, so reprocessing never downgrades an order that is already `DELIVERED`. It rejects an `order_id` that is not a UUID and an `invoice_key` other than `{invoice prefix}{order_id}.pdf`.
 
 ---
 
 ## SNS notification (`order-notifications`)
 
-Published by the `notify-order` Lambda. Not consumed by any of our services; it exists for e-mail/push.
+Published by the `notify-order` Lambda in the same database transaction that sets `READY`: if publishing fails, the status change rolls back and the message is retried. A redelivery for an order that is already `READY` does not publish again. Not consumed by any of our services; it exists for e-mail/push.
 
 ```json
 {

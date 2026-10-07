@@ -44,4 +44,12 @@ export class OrdersController {
   ) {
     return this.orders.findOne(user.id, id);
   }
+
+  @Get(':id/invoice')
+  invoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    return this.orders.invoiceUrl(user.id, id);
+  }
 }

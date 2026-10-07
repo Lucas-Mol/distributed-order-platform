@@ -6,6 +6,7 @@ import {
 import { OrderStatus, type Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { PaginationQueryDto } from '../common/dto/pagination-query.dto.js';
+import { StorageService } from '../storage/storage.service.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import { ORDER_CREATED, orderCreatedEvent } from './order-events.js';
 
@@ -15,9 +16,23 @@ const orderWithItems = {
 
 export type OrderWithItems = Prisma.OrderGetPayload<typeof orderWithItems>;
 
+export interface InvoiceLink {
+  url: string;
+  expiresAt: string;
+}
+
+const INVOICE_URL_TTL_SECONDS = 300;
+const INVOICE_STATUSES: OrderStatus[] = [
+  OrderStatus.READY,
+  OrderStatus.DELIVERED,
+];
+
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   create(userId: string, dto: CreateOrderDto): Promise<OrderWithItems> {
     const quantities = new Map<string, number>();
@@ -116,5 +131,25 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
     return order;
+  }
+
+  async invoiceUrl(userId: string, id: string): Promise<InvoiceLink> {
+    const order = await this.prisma.order.findFirst({
+      where: { id, userId },
+      select: { id: true, status: true, invoiceKey: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+    if (!order.invoiceKey || !INVOICE_STATUSES.includes(order.status)) {
+      throw new ConflictException('Invoice is not ready yet');
+    }
+    const expiresAt = new Date(Date.now() + INVOICE_URL_TTL_SECONDS * 1000);
+    const url = await this.storage.presignAttachment(
+      order.invoiceKey,
+      `invoice-${order.id}.pdf`,
+      INVOICE_URL_TTL_SECONDS,
+    );
+    return { url, expiresAt: expiresAt.toISOString() };
   }
 }
