@@ -151,6 +151,12 @@ export const api = {
   me: () => request<User>('/users/me', { auth: true }),
 
   getCart: () => request<Cart>('/cart', { auth: true }),
+  addCartItem: (productId: string, quantity: number) =>
+    request<Cart>(`/cart/items/${encodeURIComponent(productId)}`, {
+      method: 'POST',
+      body: { quantity },
+      auth: true,
+    }),
   setCartItem: (productId: string, quantity: number) =>
     request<Cart>(`/cart/items/${encodeURIComponent(productId)}`, {
       method: 'PUT',
@@ -163,12 +169,8 @@ export const api = {
       auth: true,
     }),
 
-  createOrder: (items: { productId: string; quantity: number }[]) =>
-    request<Order>('/orders', {
-      method: 'POST',
-      body: { items },
-      auth: true,
-    }),
+  checkout: () =>
+    request<Order>('/orders/checkout', { method: 'POST', auth: true }),
   listOrders: (page: Pagination) =>
     request<Order[]>(`/orders?${paginate(page)}`, { auth: true }),
   getOrder: (id: string) =>

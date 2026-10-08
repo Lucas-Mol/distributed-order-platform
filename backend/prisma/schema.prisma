@@ -36,7 +36,6 @@ model User {
   role         Role       @default(CUSTOMER)
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   orders       Order[]
-  cartItems    CartItem[]
 
   @@map("users")
 }
@@ -50,7 +49,6 @@ model Product {
   stock       Int         @default(0)
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   orderItems  OrderItem[]
-  cartItems   CartItem[]
 
   @@map("products")
 }
@@ -112,17 +110,4 @@ model Payment {
 
   @@index([orderId])
   @@map("payments")
-}
-
-/// Temporary cart storage; moves to the DynamoDB `carts` table later.
-model CartItem {
-  userId    String   @map("user_id") @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  quantity  Int
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@id([userId, productId])
-  @@map("cart_items")
 }

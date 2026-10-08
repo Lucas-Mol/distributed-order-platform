@@ -9,17 +9,11 @@ import type { ActionState } from './state';
 export async function placeOrder(): Promise<ActionState> {
   let order: Order;
   try {
-    const cart = await api.getCart();
-    if (cart.items.length === 0) {
-      return { error: 'Your cart is empty.' };
-    }
-    order = await api.createOrder(
-      cart.items.map(({ productId, quantity }) => ({ productId, quantity })),
-    );
+    order = await api.checkout();
   } catch (error) {
     return handleActionError(error, '/checkout', {
-      404: 'Some products in your cart are no longer available. Review your cart.',
-      409: 'Some products do not have enough stock. Adjust the quantities in your cart.',
+      400: 'Your cart is empty.',
+      409: 'Your cart changed: some prices, availability or stock were updated. Review your cart before ordering.',
     });
   }
   redirect(`/orders/${order.id}?placed=1`);

@@ -19,7 +19,7 @@ const sharedParams: Record<string, string> = {
   's3-invoice-prefix': 'invoices/',
   'sqs-orders-queue': 'orders-queue',
   'dynamo-carts-table': 'carts',
-  'dynamo-stock-cache-table': 'stock_cache',
+  'dynamo-product-cache-table': 'product_cache',
 };
 
 const backendParams: Record<string, string> = {

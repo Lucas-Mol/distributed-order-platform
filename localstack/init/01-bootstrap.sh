@@ -10,7 +10,7 @@ ORDERS_QUEUE="${SQS_ORDERS_QUEUE:-orders-queue}"
 INVOICE_QUEUE="${SQS_INVOICE_READY_QUEUE:-invoice-ready-queue}"
 TOPIC="${SNS_ORDER_TOPIC:-order-notifications}"
 CARTS_TABLE="${DYNAMO_CARTS_TABLE:-carts}"
-STOCK_TABLE="${DYNAMO_STOCK_CACHE_TABLE:-stock_cache}"
+PRODUCT_CACHE_TABLE="${DYNAMO_PRODUCT_CACHE_TABLE:-product_cache}"
 APP_ENV="${APP_ENV:-local}"
 SSM_PREFIX="/order-platform/${APP_ENV}"
 SECRET_PREFIX="order-platform/${APP_ENV}"
@@ -59,14 +59,14 @@ awslocal dynamodb create-table \
 echo "[bootstrap] table ${CARTS_TABLE} created"
 
 awslocal dynamodb create-table \
-  --table-name "${STOCK_TABLE}" \
+  --table-name "${PRODUCT_CACHE_TABLE}" \
   --attribute-definitions AttributeName=product_id,AttributeType=S \
   --key-schema AttributeName=product_id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST >/dev/null
 awslocal dynamodb update-time-to-live \
-  --table-name "${STOCK_TABLE}" \
+  --table-name "${PRODUCT_CACHE_TABLE}" \
   --time-to-live-specification "Enabled=true,AttributeName=ttl" >/dev/null
-echo "[bootstrap] table ${STOCK_TABLE} created"
+echo "[bootstrap] table ${PRODUCT_CACHE_TABLE} created"
 
 # ---------- SSM Parameter Store ----------
 put_param() {
@@ -87,7 +87,7 @@ put_param shared/sqs-orders-queue "${ORDERS_QUEUE}"
 put_param shared/sqs-invoice-ready-queue "${INVOICE_QUEUE}"
 put_param shared/sns-order-topic "${TOPIC}"
 put_param shared/dynamo-carts-table "${CARTS_TABLE}"
-put_param shared/dynamo-stock-cache-table "${STOCK_TABLE}"
+put_param shared/dynamo-product-cache-table "${PRODUCT_CACHE_TABLE}"
 put_param backend/jwt-expires-in "${JWT_EXPIRES_IN:-1h}"
 put_param backend/rate-limit-ttl-seconds "${RATE_LIMIT_TTL_SECONDS:-60}"
 put_param backend/rate-limit-max "${RATE_LIMIT_MAX:-100}"

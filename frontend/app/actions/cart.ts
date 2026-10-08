@@ -30,16 +30,7 @@ export async function addToCart(
   }
   const currentPath = `/products/${productId}`;
   try {
-    const cart = await api.getCart();
-    const existing =
-      cart.items.find((item) => item.productId === productId)?.quantity ?? 0;
-    const total = existing + quantity;
-    if (total > MAX_ITEM_QUANTITY) {
-      return {
-        error: `You can have at most ${MAX_ITEM_QUANTITY} units of a product in the cart (currently ${existing}).`,
-      };
-    }
-    await api.setCartItem(productId, total);
+    await api.addCartItem(productId, quantity);
   } catch (error) {
     return handleActionError(error, currentPath, {
       404: 'This product is no longer available.',

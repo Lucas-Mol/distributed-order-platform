@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Post,
   Put,
 } from '@nestjs/common';
 import { Auth } from '../auth/auth.decorator.js';
@@ -25,6 +26,16 @@ export class CartController {
   @Get()
   get(@CurrentUser() user: AuthenticatedUser) {
     return this.cart.get(user.id);
+  }
+
+  @Post('items/:productId')
+  @HttpCode(HttpStatus.OK)
+  addItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('productId', new ParseUUIDPipe({ version: '4' })) productId: string,
+    @Body() dto: SetCartItemDto,
+  ) {
+    return this.cart.addItem(user.id, productId, dto.quantity);
   }
 
   @Put('items/:productId')

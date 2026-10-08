@@ -234,10 +234,10 @@ export async function loadAppConfig(
         s3InvoicePrefix: param(shared, 'shared', 's3-invoice-prefix'),
         sqsOrdersQueue: param(shared, 'shared', 'sqs-orders-queue'),
         dynamoCartsTable: param(shared, 'shared', 'dynamo-carts-table'),
-        dynamoStockCacheTable: param(
+        dynamoProductCacheTable: param(
           shared,
           'shared',
-          'dynamo-stock-cache-table',
+          'dynamo-product-cache-table',
         ),
       },
     };

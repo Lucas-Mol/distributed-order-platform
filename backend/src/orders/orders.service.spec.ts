@@ -1,6 +1,12 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { CartStore } from '../cart/cart.store.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ProductCache } from '../product-cache/product-cache.js';
 import { StorageService } from '../storage/storage.service.js';
 import { OrdersService } from './orders.service.js';
 
@@ -35,7 +41,6 @@ function createTx() {
         .mockResolvedValue({ email: 'customer@example.com' }),
     },
     orderEvent: { create: vi.fn().mockResolvedValue({}) },
-    cartItem: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   };
 }
 
@@ -43,6 +48,12 @@ describe('OrdersService', () => {
   let service: OrdersService;
   let tx: ReturnType<typeof createTx>;
   let storage: { presignAttachment: ReturnType<typeof vi.fn> };
+  let cart: {
+    get: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+    refresh: ReturnType<typeof vi.fn>;
+  };
+  let productCache: { decrementStock: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     tx = createTx();
@@ -53,11 +64,19 @@ describe('OrdersService', () => {
     storage = {
       presignAttachment: vi.fn().mockResolvedValue('http://s3.test/invoice'),
     };
+    cart = {
+      get: vi.fn().mockResolvedValue([]),
+      clear: vi.fn().mockResolvedValue(undefined),
+      refresh: vi.fn().mockResolvedValue(undefined),
+    };
+    productCache = { decrementStock: vi.fn().mockResolvedValue(undefined) };
     const moduleRef = await Test.createTestingModule({
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: prisma },
         { provide: StorageService, useValue: storage },
+        { provide: CartStore, useValue: cart },
+        { provide: ProductCache, useValue: productCache },
       ],
     }).compile();
     service = moduleRef.get(OrdersService);
@@ -84,9 +103,33 @@ describe('OrdersService', () => {
       totalCents: 3 * 3990 + 2490,
     });
     expect(data.items.create).toHaveLength(2);
-    expect(tx.cartItem.deleteMany).toHaveBeenCalledWith({
-      where: { userId: USER },
+  });
+
+  it('clears the cart and decrements cached stock after the commit', async () => {
+    await service.create(USER, {
+      items: [
+        { productId: MUG, quantity: 1 },
+        { productId: NOTEBOOK, quantity: 1 },
+      ],
     });
+
+    expect(cart.clear).toHaveBeenCalledWith(USER);
+    expect(productCache.decrementStock).toHaveBeenCalledWith(
+      new Map([
+        [MUG, 1],
+        [NOTEBOOK, 1],
+      ]),
+    );
+  });
+
+  it('keeps the order when the cart cannot be cleared', async () => {
+    cart.clear.mockRejectedValue(new Error('dynamo down'));
+
+    const order = await service.create(USER, {
+      items: [{ productId: MUG, quantity: 1 }],
+    });
+
+    expect(order.id).toBe('order-1');
   });
 
   it('writes the order.created event in the same transaction', async () => {
@@ -152,6 +195,58 @@ describe('OrdersService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
     expect(tx.order.create).not.toHaveBeenCalled();
     expect(tx.orderEvent.create).not.toHaveBeenCalled();
+    expect(cart.clear).not.toHaveBeenCalled();
+  });
+
+  describe('checkout', () => {
+    const line = (productId: string, name: string, unitPriceCents: number) => ({
+      productId,
+      name,
+      unitPriceCents,
+      quantity: 2,
+    });
+
+    it('rejects an empty cart', async () => {
+      await expect(service.checkout(USER)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(tx.product.findMany).not.toHaveBeenCalled();
+    });
+
+    it('orders the cart contents when the prices match', async () => {
+      cart.get.mockResolvedValue([
+        line(MUG, 'Mug', 3990),
+        line(NOTEBOOK, 'Notebook', 2490),
+      ]);
+
+      const order = await service.checkout(USER);
+
+      expect(order.totalCents).toBe(2 * 3990 + 2 * 2490);
+      expect(cart.clear).toHaveBeenCalledWith(USER);
+      expect(cart.refresh).not.toHaveBeenCalled();
+    });
+
+    it('refreshes the cart and rejects when a price changed or a product is gone', async () => {
+      tx.product.findMany.mockResolvedValue([
+        { id: MUG, name: 'Mug v2', priceCents: 4990 },
+      ]);
+      cart.get.mockResolvedValue([
+        line(MUG, 'Mug', 3990),
+        line(NOTEBOOK, 'Notebook', 2490),
+      ]);
+
+      await expect(service.checkout(USER)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(tx.product.updateMany).not.toHaveBeenCalled();
+      expect(tx.order.create).not.toHaveBeenCalled();
+      expect(cart.refresh).toHaveBeenCalledWith(
+        USER,
+        new Map([[MUG, { name: 'Mug v2', unitPriceCents: 4990 }]]),
+        [NOTEBOOK],
+      );
+      expect(cart.clear).not.toHaveBeenCalled();
+    });
   });
 
   it("returns 404 for another user's order", async () => {

@@ -8,6 +8,7 @@ import type { ConfigType } from '@nestjs/config';
 import { appConfig } from '../config/app.config.js';
 import type { Product } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ProductCache } from '../product-cache/product-cache.js';
 import { StorageService } from '../storage/storage.service.js';
 import type {
   CreateImageUploadDto,
@@ -49,6 +50,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly cache: ProductCache,
     @Inject(appConfig.KEY) config: ConfigType<typeof appConfig>,
   ) {
     this.imagePrefix = config.aws.s3ProductImagePrefix;
@@ -78,23 +80,34 @@ export class ProductsService {
   }
 
   async findOne(id: string): Promise<ProductView> {
-    return this.toView(
-      await this.prisma.product.findUniqueOrThrow({ where: { id } }),
-    );
+    return this.toView(await this.findCached(id));
+  }
+
+  async findCached(id: string): Promise<Product> {
+    const cached = await this.cache.get(id);
+    if (cached) {
+      return cached;
+    }
+    const product = await this.prisma.product.findUniqueOrThrow({
+      where: { id },
+    });
+    await this.cache.put(product);
+    return product;
   }
 
   async create(dto: CreateProductDto): Promise<ProductView> {
-    return this.toView(await this.prisma.product.create({ data: dto }));
+    return this.cachedView(await this.prisma.product.create({ data: dto }));
   }
 
   async update(id: string, dto: UpdateProductDto): Promise<ProductView> {
-    return this.toView(
+    return this.cachedView(
       await this.prisma.product.update({ where: { id }, data: dto }),
     );
   }
 
   async remove(id: string): Promise<void> {
     const product = await this.prisma.product.delete({ where: { id } });
+    await this.cache.delete(id);
     await this.storage.deleteQuietly(this.imageObjects(product.imageKey));
   }
 
@@ -157,7 +170,7 @@ export class ProductsService {
       data: { imageKey: key },
     });
     await this.storage.deleteQuietly(this.imageObjects(current.imageKey));
-    return this.toView(product);
+    return this.cachedView(product);
   }
 
   async removeImage(id: string): Promise<ProductView> {
@@ -173,13 +186,18 @@ export class ProductsService {
       data: { imageKey: null },
     });
     await this.storage.deleteQuietly(this.imageObjects(current.imageKey));
-    return this.toView(product);
+    return this.cachedView(product);
   }
 
   private imageObjects(imageKey: string | null): string[] {
     return imageKey
       ? [imageKey, thumbnailKeyOf(this.thumbnailPrefix, imageKey)]
       : [];
+  }
+
+  private async cachedView(product: Product): Promise<ProductView> {
+    await this.cache.put(product);
+    return this.toView(product);
   }
 
   private async toView(product: Product): Promise<ProductView> {

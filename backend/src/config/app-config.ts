@@ -37,7 +37,7 @@ export interface AppConfig {
     s3InvoicePrefix: string;
     sqsOrdersQueue: string;
     dynamoCartsTable: string;
-    dynamoStockCacheTable: string;
+    dynamoProductCacheTable: string;
   };
 }
 

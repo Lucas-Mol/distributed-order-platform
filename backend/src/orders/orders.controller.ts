@@ -29,6 +29,11 @@ export class OrdersController {
     return this.orders.create(user.id, dto);
   }
 
+  @Post('checkout')
+  checkout(@CurrentUser() user: AuthenticatedUser) {
+    return this.orders.checkout(user.id);
+  }
+
   @Get()
   findAll(
     @CurrentUser() user: AuthenticatedUser,
